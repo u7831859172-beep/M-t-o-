@@ -9,13 +9,13 @@ jobs:
         with: {node-version: 20}
       - uses: actions/setup-java@v4
         with: {distribution: temurin, java-version: 17}
-      - run: npm install
+      - run: npm install --legacy-peer-deps
       - run: npx cap add android
       - run: |
-          sed -i 's#</manifest>#<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/><uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/></manifest>#' android/app/src/main/AndroidManifest.xml
+          sed -i 's#</manifest>#<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/><uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/><uses-permission android:name="android.permission.POST_NOTIFICATIONS"/></manifest>#' android/app/src/main/AndroidManifest.xml
       - run: npx cap sync android
       - run: cd android && chmod +x gradlew && ./gradlew assembleDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: meteo-apk
+          name: atmoz-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk

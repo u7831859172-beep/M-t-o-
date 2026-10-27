@@ -1,1 +1,1 @@
-{"appId":"com.moi.meteo","appName":"Meteo","webDir":"www"}
+{"appId":"com.moi.atmoz","appName":"Atmoz","webDir":"www","plugins":{"BackgroundRunner":{"label":"com.moi.atmoz.check","src":"runners/runner.js","event":"check","repeat":true,"interval":15,"autoStart":true}}}
