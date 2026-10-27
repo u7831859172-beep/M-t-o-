@@ -72,9 +72,10 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ac)}
 </section>
 <section class="tab" id="t-det"><h2>Détails</h2><div class="grid" id="det"></div></section>
 <section class="tab" id="t-map">
-  <div class="row sp" style="margin-bottom:10px"><h2 style="margin:0">Radar de pluie</h2><button class="pill" id="play">⏸</button></div>
+  <div class="row sp" style="margin-bottom:10px"><h2 style="margin:0">Radar de pluie</h2><div class="row"><button class="pill" id="bm">🌙 Sombre</button><button class="pill" id="play">⏸</button></div></div>
   <div id="lay" style="display:none;gap:8px;overflow-x:auto;margin-bottom:10px;scrollbar-width:none"></div>
   <div id="map"></div><p class="mut" id="rt" style="text-align:center;margin-top:8px"></p>
+  <p class="mut" style="text-align:center;font-size:.7rem;margin-top:4px">Fond © Esri, HERE, Garmin, OpenStreetMap · Radar © RainViewer</p>
 </section>
 <section class="tab" id="t-al"><h2>Alertes</h2>
   <div class="card"><b>🔔 Notifications</b><p class="mut" style="margin:6px 0 12px">Recevez une alerte orage, pluie ou neige près de votre position, même quand l’app est fermée.</p><div class="row"><button class="pill" id="nOn">Activer</button><button class="pill" id="nTest">Tester</button></div><p class="mut" id="nstat" style="margin-top:10px"></p></div>
@@ -271,11 +272,26 @@ function alerts(){
 }
 
 /* Radar */
+const ES="https://server.arcgisonline.com/ArcGIS/rest/services/";
+const BASE={
+  dark:{n:"🌙 Sombre",u:ES+"Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",l:ES+"Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}",z:16},
+  street:{n:"🗺️ Plan",u:ES+"World_Street_Map/MapServer/tile/{z}/{y}/{x}",z:19},
+  sat:{n:"🛰️ Satellite",u:ES+"World_Imagery/MapServer/tile/{z}/{y}/{x}",l:ES+"Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",z:19}
+};
+let bk="dark",bl=[];
+function setBase(k){
+  bk=k;bl.forEach(x=>map.removeLayer(x));bl=[];const b=BASE[k];
+  bl.push(L.tileLayer(b.u,{maxNativeZoom:b.z,maxZoom:12}).addTo(map).bringToBack());
+  if(b.l)bl.push(L.tileLayer(b.l,{pane:"lab",maxNativeZoom:b.z,maxZoom:12}).addTo(map));
+  $("#bm").textContent=b.n;try{localStorage.setItem("bk",k)}catch(e){}
+}
 let map=null,frames=[],layers=[],fi=0,timer=null,playing=true;
 async function initMap(){
   if(map){setTimeout(()=>map.invalidateSize(),50);return}
   map=L.map("map",{zoomControl:false,attributionControl:false}).setView([pos.lat,pos.lon],6);
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{maxZoom:10}).addTo(map);
+  map.createPane("lab").style.zIndex=250;map.getPane("lab").style.pointerEvents="none";
+  let k0="dark";try{k0=localStorage.getItem("bk")||"dark"}catch(e){}
+  setBase(BASE[k0]?k0:"dark");
   L.circleMarker([pos.lat,pos.lon],{radius:6,color:"#fff",fillColor:"#5aa9ff",fillOpacity:1}).addTo(map);
   if(OWM_KEY){
     const LY=[["precipitation_new","🌧️ Pluie"],["clouds_new","☁️ Nuages"],["wind_new","💨 Vent"],["temp_new","🌡️ Temp."],["pressure_new","🧭 Pression"]];
@@ -300,6 +316,7 @@ function show(){
   $("#rt").textContent=t+(frames[fi].time*1000>Date.now()?" · prévision":" · observé");
 }
 function play(){clearInterval(timer);timer=setInterval(()=>{fi=(fi+1)%frames.length;show()},700);playing=true;$("#play").textContent="⏸"}
+$("#bm").onclick=()=>{if(!map)return;const ks=Object.keys(BASE);setBase(ks[(ks.indexOf(bk)+1)%ks.length])};
 $("#play").onclick=()=>{if(playing){clearInterval(timer);playing=false;$("#play").textContent="▶️"}else play()};
 
 /* Actualisation automatique */
