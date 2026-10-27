@@ -15,7 +15,7 @@ jobs:
           sed -i 's#</manifest>#<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/><uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/><uses-permission android:name="android.permission.POST_NOTIFICATIONS"/></manifest>#' android/app/src/main/AndroidManifest.xml
       - run: npx cap sync android
       - run: |
-          sed -i "s#'libs'#'libs', '../../node_modules/@capacitor/background-runner/android/src/main/libs'#" android/app/build.gradle
+          sed -i "/dirs '/ s#'libs'#'libs', '../../node_modules/@capacitor/background-runner/android/src/main/libs'#" android/app/build.gradle
           sed -i 's/minSdkVersion = 22/minSdkVersion = 23/' android/variables.gradle
           grep -n "background-runner" android/app/build.gradle
       - run: cd android && chmod +x gradlew && ./gradlew assembleDebug --stacktrace
