@@ -14,6 +14,11 @@ jobs:
       - run: cp -r icons/. android/app/src/main/res/
       - run: |
           sed -i 's#</manifest>#<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/><uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/><uses-permission android:name="android.permission.POST_NOTIFICATIONS"/></manifest>#' android/app/src/main/AndroidManifest.xml
+      - run: |
+          cp -r widget/res/. android/app/src/main/res/
+          mkdir -p android/app/src/main/java/com/moi/atmoz
+          cp widget/java/*.java android/app/src/main/java/com/moi/atmoz/
+          sed -i 's#</application>#<receiver android:name="com.moi.atmoz.SmallWidget" android:label="Atmoz - Actuel" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_small_info"/></receiver><receiver android:name="com.moi.atmoz.WideWidget" android:label="Atmoz - Heure par heure" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_wide_info"/></receiver></application>#' android/app/src/main/AndroidManifest.xml
       - run: npx cap sync android
       - run: |
           sed -i "/dirs '/ s#'libs'#'libs', '../../node_modules/@capacitor/background-runner/android/src/main/libs'#" android/app/build.gradle

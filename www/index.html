@@ -177,6 +177,7 @@ document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
 /* Notifications en arrière-plan (Capacitor) */
 const CP=(window.Capacitor&&Capacitor.Plugins)||{};
 function savePos(){
+  try{if(CP.Preferences&&home)CP.Preferences.set({key:"home",value:JSON.stringify({lat:home.lat,lon:home.lon,name:home.name})})}catch(e){}
   try{if(CP.BackgroundRunner&&home)CP.BackgroundRunner.dispatchEvent({label:"com.moi.atmoz.check",event:"savePos",details:{lat:home.lat,lon:home.lon,name:home.name}})}catch(e){}
 }
 async function notif(test){
