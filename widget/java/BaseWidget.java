@@ -5,9 +5,6 @@ import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.Context;
 import android.content.Intent;
-import android.text.SpannableStringBuilder;
-import android.text.Spanned;
-import android.text.style.RelativeSizeSpan;
 import android.widget.RemoteViews;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -18,8 +15,9 @@ import java.net.URL;
 
 public abstract class BaseWidget extends AppWidgetProvider {
   abstract int layout();
-  abstract boolean wide();
-  boolean forecast() { return false; }
+  int cols() { return 0; }
+  boolean cond() { return false; }
+  boolean feels() { return false; }
 
   @Override
   public void onUpdate(final Context c, final AppWidgetManager m, final int[] ids) {
@@ -47,16 +45,14 @@ public abstract class BaseWidget extends AppWidgetProvider {
     return b.toString();
   }
 
-  static String ico(int c, boolean day) {
-    if (c == 0 || c == 1) return day ? "\u2600\uFE0F" : "\uD83C\uDF19";
-    if (c == 2) return day ? "\u26C5" : "\u2601\uFE0F";
-    if (c == 3) return "\u2601\uFE0F";
-    if (c == 45 || c == 48) return "\uD83C\uDF2B\uFE0F";
-    if ((c >= 51 && c <= 57) || (c >= 80 && c <= 82)) return day ? "\uD83C\uDF26\uFE0F" : "\uD83C\uDF27\uFE0F";
-    if (c >= 61 && c <= 67) return "\uD83C\uDF27\uFE0F";
-    if ((c >= 71 && c <= 77) || c == 85 || c == 86) return "\uD83C\uDF28\uFE0F";
-    if (c >= 95) return "\u26C8\uFE0F";
-    return "\uD83C\uDF21\uFE0F";
+  static int icon(int c, boolean day) {
+    if (c == 0 || c == 1) return day ? R.drawable.w_sun : R.drawable.w_moon;
+    if (c == 2) return day ? R.drawable.w_partly : R.drawable.w_night_partly;
+    if (c == 45 || c == 48) return R.drawable.w_fog;
+    if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82)) return R.drawable.w_rain;
+    if ((c >= 71 && c <= 77) || c == 85 || c == 86) return R.drawable.w_snow;
+    if (c >= 95) return R.drawable.w_storm;
+    return R.drawable.w_cloud;
   }
 
   static String label(int c, boolean day) {
@@ -74,17 +70,8 @@ public abstract class BaseWidget extends AppWidgetProvider {
     return "Variable";
   }
 
-  static CharSequence col(String top, String icon, String bottom) {
-    SpannableStringBuilder b = new SpannableStringBuilder();
-    b.append(top).append("\n");
-    int s = b.length();
-    b.append(icon);
-    b.setSpan(new RelativeSizeSpan(1.7f), s, b.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-    b.append("\n");
-    s = b.length();
-    b.append(bottom);
-    b.setSpan(new RelativeSizeSpan(0.85f), s, b.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-    return b;
+  static int vid(Context c, String name) {
+    return c.getResources().getIdentifier(name, "id", c.getPackageName());
   }
 
   RemoteViews build(Context c) {
@@ -106,12 +93,17 @@ public abstract class BaseWidget extends AppWidgetProvider {
       JSONObject h = j.getJSONObject("hourly");
       JSONObject d = j.getJSONObject("daily");
       boolean day = cur.getInt("is_day") == 1;
+      int code = cur.getInt("weather_code");
+      String tnow = Math.round(cur.getDouble("temperature_2m")) + "\u00B0";
       v.setTextViewText(R.id.city, p.optString("name", "Ma position"));
-      v.setTextViewText(R.id.icon, ico(cur.getInt("weather_code"), day));
-      v.setTextViewText(R.id.temp, Math.round(cur.getDouble("temperature_2m")) + "\u00B0");
-      v.setTextViewText(R.id.range, "\u2191" + Math.round(d.getJSONArray("temperature_2m_max").getDouble(0))
-        + "\u00B0  \u2193" + Math.round(d.getJSONArray("temperature_2m_min").getDouble(0)) + "\u00B0");
-      if (wide()) {
+      v.setImageViewResource(R.id.icon, icon(code, day));
+      v.setTextViewText(R.id.temp, tnow);
+      v.setTextViewText(R.id.range, Math.round(d.getJSONArray("temperature_2m_max").getDouble(0)) + "\u00B0 \u00B7 "
+        + Math.round(d.getJSONArray("temperature_2m_min").getDouble(0)) + "\u00B0");
+      if (cond()) v.setTextViewText(R.id.cond, label(code, day));
+      if (feels()) v.setTextViewText(R.id.feels, "Ressenti : " + Math.round(cur.getDouble("apparent_temperature")) + "\u00B0");
+      int n = cols();
+      if (n > 0) {
         JSONArray t = h.getJSONArray("time");
         JSONArray tt = h.getJSONArray("temperature_2m");
         JSONArray wc = h.getJSONArray("weather_code");
@@ -119,34 +111,20 @@ public abstract class BaseWidget extends AppWidgetProvider {
         String now = cur.getString("time").substring(0, 13);
         int i0 = 0;
         for (int i = 0; i < t.length(); i++) { if (t.getString(i).startsWith(now)) { i0 = i; break; } }
-        int[] hid = { R.id.h0, R.id.h1, R.id.h2, R.id.h3, R.id.h4 };
-        for (int k = 0; k < 5; k++) {
-          int i = i0 + 1 + k;
-          if (i >= t.length()) break;
-          v.setTextViewText(hid[k], t.getString(i).substring(11, 13) + "h\n"
-            + ico(wc.getInt(i), dd.getInt(i) == 1) + "\n" + Math.round(tt.getDouble(i)) + "\u00B0");
-        }
-      }
-      if (forecast()) {
-        v.setTextViewText(R.id.cond, label(cur.getInt("weather_code"), day));
-        v.setTextViewText(R.id.feels, "Ressenti : " + Math.round(cur.getDouble("apparent_temperature")) + "\u00B0");
-        v.setTextViewText(R.id.range, Math.round(d.getJSONArray("temperature_2m_max").getDouble(0)) + "\u00B0 \u00B7 "
-          + Math.round(d.getJSONArray("temperature_2m_min").getDouble(0)) + "\u00B0");
-        JSONArray t = h.getJSONArray("time");
-        JSONArray tt = h.getJSONArray("temperature_2m");
-        JSONArray wc = h.getJSONArray("weather_code");
-        JSONArray dd = h.getJSONArray("is_day");
-        String now = cur.getString("time").substring(0, 13);
-        int i0 = 0;
-        for (int i = 0; i < t.length(); i++) { if (t.getString(i).startsWith(now)) { i0 = i; break; } }
-        int[] fid = { R.id.f0, R.id.f1, R.id.f2, R.id.f3, R.id.f4, R.id.f5, R.id.f6 };
-        v.setTextViewText(fid[0], col(Math.round(cur.getDouble("temperature_2m")) + "\u00B0",
-          ico(cur.getInt("weather_code"), day), "Maintenant"));
-        for (int k = 1; k < 7; k++) {
-          int i = i0 + k;
-          if (i >= t.length()) break;
-          v.setTextViewText(fid[k], col(Math.round(tt.getDouble(i)) + "\u00B0",
-            ico(wc.getInt(i), dd.getInt(i) == 1), t.getString(i).substring(11, 13) + " h"));
+        for (int k = 0; k < n; k++) {
+          String top, bottom;
+          int res;
+          if (k == 0) { top = tnow; res = icon(code, day); bottom = "Maintenant"; }
+          else {
+            int i = i0 + k;
+            if (i >= t.length()) break;
+            top = Math.round(tt.getDouble(i)) + "\u00B0";
+            res = icon(wc.getInt(i), dd.getInt(i) == 1);
+            bottom = t.getString(i).substring(11, 13) + " h";
+          }
+          v.setTextViewText(vid(c, "ct" + k), top);
+          v.setImageViewResource(vid(c, "ci" + k), res);
+          v.setTextViewText(vid(c, "cl" + k), bottom);
         }
       }
       return v;
