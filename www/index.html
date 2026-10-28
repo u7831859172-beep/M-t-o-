@@ -317,7 +317,7 @@ function setBase(k){
 }
 let map=null,frames=[],layers=[],fi=0,timer=null,playing=true;
 async function initMap(){
-  if(map){setTimeout(()=>map.invalidateSize(),50);return}
+  if(map){setTimeout(()=>map.invalidateSize(),50);if(!OWM_KEY&&Date.now()-rt0>180000)loadRadar();return}
   map=L.map("map",{zoomControl:false,attributionControl:false}).setView([pos.lat,pos.lon],6);
   map.createPane("lab").style.zIndex=250;map.getPane("lab").style.pointerEvents="none";
   let k0="dark";try{k0=localStorage.getItem("bk")||"dark"}catch(e){}
@@ -333,11 +333,16 @@ async function initMap(){
     set("precipitation_new");$("#play").style.display="none";$("#rt").textContent="Données OpenWeatherMap";
     return;
   }
+  loadRadar();
+}
+let rt0=0;
+async function loadRadar(){
   try{
-    const j=await (await fetch("https://api.rainviewer.com/public/weather-maps.json")).json();
+    const j=await (await fetch("https://api.rainviewer.com/public/weather-maps.json",{cache:"no-store"})).json();
+    layers.forEach(l=>map.removeLayer(l));
     frames=[...j.radar.past,...(j.radar.nowcast||[])];
     layers=frames.map(f=>L.tileLayer(j.host+f.path+"/256/{z}/{x}/{y}/2/1_1.png",{opacity:0,maxNativeZoom:7,maxZoom:10}).addTo(map));
-    fi=Math.max(0,j.radar.past.length-1);show();play();
+    fi=Math.max(0,j.radar.past.length-1);rt0=Date.now();show();if(playing)play();
   }catch(e){$("#rt").textContent="Radar indisponible. Vérifiez la connexion."}
 }
 function show(){
@@ -351,7 +356,8 @@ $("#play").onclick=()=>{if(playing){clearInterval(timer);playing=false;$("#play"
 
 /* Actualisation automatique */
 setInterval(load,10*60*1000);
-document.addEventListener("visibilitychange",()=>{if(!document.hidden)load()});
+setInterval(()=>{if(map&&!OWM_KEY)loadRadar()},5*60*1000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){load();if(map&&!OWM_KEY&&Date.now()-rt0>180000)loadRadar()}});
 pos?load():locate();
 if(pos)locate();
 </script>
