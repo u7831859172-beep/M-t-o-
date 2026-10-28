@@ -4,6 +4,10 @@
     android:orientation="vertical" android:background="@drawable/widget_bg" android:padding="12dp">
     <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="2dp">
+                <ImageView android:layout_width="14dp" android:layout_height="14dp" android:src="@mipmap/ic_launcher" android:scaleType="fitCenter" android:layout_marginEnd="5dp"/>
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Atmoz" android:textSize="11sp" android:textStyle="bold" android:textColor="#FFFFFF" android:alpha="0.9"/>
+            </LinearLayout>
             <TextView android:id="@+id/city" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:textSize="15sp" android:textColor="#9FD0FF" android:singleLine="true" android:ellipsize="end" android:textStyle="bold"/>
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="3dp">
                 <ImageView android:id="@+id/icon" android:layout_width="24dp" android:layout_height="24dp" android:layout_marginEnd="6dp" android:scaleType="fitCenter"/>
