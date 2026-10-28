@@ -82,6 +82,8 @@ nav button.on{background:linear-gradient(180deg,#2f8cff,#1446c4);color:#fff;box-
 .chip.on{background:linear-gradient(180deg,#2f8cff,#1446c4);border-color:transparent;box-shadow:0 0 12px rgba(47,140,255,.5)}
 .bars{display:flex;align-items:flex-end;gap:3px;height:56px;margin-top:6px}.bars i{flex:1;border-radius:3px 3px 0 0;background:linear-gradient(#8fd0ff,#2f8cff);min-height:3px}
 .wi{width:1em;height:1em;display:inline-block;vertical-align:-.12em;overflow:visible}
+#ptr{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);left:50%;transform:translate(-50%,0);width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:#fff;background:linear-gradient(180deg,#2f8cff,#1446c4);box-shadow:0 0 16px rgba(47,140,255,.6);opacity:0;z-index:998;pointer-events:none;transition:opacity .15s}
+@keyframes sp{from{rotate:0deg}to{rotate:360deg}}#ptr.spin{animation:sp .8s linear infinite}
 </style>
 </head>
 <body>
@@ -421,6 +423,27 @@ function show(){
 function play(){clearInterval(timer);timer=setInterval(()=>{fi=(fi+1)%frames.length;show()},700);playing=true;$("#play").textContent="⏸"}
 $("#bm").onclick=()=>{if(!map)return;const ks=Object.keys(BASE);setBase(ks[(ks.indexOf(bk)+1)%ks.length])};
 $("#play").onclick=()=>{if(playing){clearInterval(timer);playing=false;$("#play").textContent="▶️"}else play()};
+
+/* Tirer vers le bas pour actualiser */
+(()=>{
+  const ind=document.createElement("div");ind.id="ptr";ind.textContent="↓";document.body.appendChild(ind);
+  let y0=null,dy=0,busy=false;
+  const top=()=>(window.scrollY||document.documentElement.scrollTop||0)<=0,mapOn=()=>$("#t-map").classList.contains("on");
+  addEventListener("touchstart",e=>{y0=(top()&&!mapOn()&&!busy)?e.touches[0].clientY:null;dy=0},{passive:true});
+  addEventListener("touchmove",e=>{
+    if(y0===null)return;dy=Math.max(0,e.touches[0].clientY-y0);
+    if(dy>0){ind.style.opacity=Math.min(1,dy/80);ind.style.transform=`translate(-50%,${Math.min(dy,110)*.6}px) rotate(${Math.min(dy,80)*2.25}deg)`;ind.textContent=dy>80?"↻":"↓"}
+  },{passive:true});
+  addEventListener("touchend",async()=>{
+    if(y0===null)return;y0=null;
+    if(dy>80){
+      busy=true;ind.classList.add("spin");ind.textContent="↻";ind.style.transform="translate(-50%,60px)";ind.style.opacity=1;
+      try{await load();if(map&&!OWM_KEY)await loadRadar()}catch(e){}
+      busy=false;ind.classList.remove("spin");
+    }
+    ind.style.opacity=0;ind.style.transform="translate(-50%,0)";dy=0;
+  });
+})();
 
 /* Actualisation automatique */
 setInterval(load,10*60*1000);
