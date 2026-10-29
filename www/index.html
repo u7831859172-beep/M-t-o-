@@ -99,6 +99,7 @@ nav button.on{background:linear-gradient(180deg,#2f8cff,#1446c4);color:#fff;box-
   <div id="banner"></div>
   <div class="card hero"><div class="place" id="place">Chargement…</div><div class="ico" id="ico">⏳</div><div class="t" id="temp">--°</div><div class="d" id="desc"></div><div class="mut" id="mm" style="margin-top:6px"></div></div>
   <div class="card" id="nowrain"></div>
+  <div class="card" id="stars"></div>
   <div class="grid" id="quick"></div>
   <div id="camsec" style="display:none"><h2 style="margin-top:18px">Webcams près de vous</h2><div id="cams"></div><p class="mut" style="font-size:.7rem;text-align:center">Webcams © Windy.com · photos actualisées toutes les 5 à 15 min</p></div>
   <p class="mut" id="upd" style="text-align:center;margin-top:14px"></p>
@@ -245,7 +246,7 @@ async function load(){
   if(!pos)return locate();
   const u="https://api.open-meteo.com/v1/forecast?latitude="+pos.lat+"&longitude="+pos.lon+
   "&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,cloud_cover,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m"+
-  "&hourly=temperature_2m,precipitation_probability,weather_code,is_day,wind_gusts_10m,visibility,uv_index"+
+  "&hourly=temperature_2m,precipitation_probability,weather_code,is_day,cloud_cover,wind_gusts_10m,visibility,uv_index"+
   "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,sunrise,sunset,wind_gusts_10m_max,uv_index_max"+
   "&minutely_15=precipitation&forecast_minutely_15=8&timezone=auto&forecast_days=7&wind_speed_unit=kmh";
   try{
@@ -291,7 +292,7 @@ function render(){
     card2("🌇 Coucher",d.sunset[0].slice(11,16),""),
     card2("🌙 "+moon().n,moon().e+" "+moon().p,"% éclairée")
   ].join("");
-  nowRain();pw();drawFavs();
+  nowRain();pw();stars();drawFavs();
   alerts();
   if(map)map.setView([pos.lat,pos.lon],map.getZoom());
 }
@@ -336,8 +337,40 @@ async function loadAir(){
   }catch(e){AIR=null;$("#air").innerHTML=`<div class="card mut" style="grid-column:1/3">Qualité de l’air indisponible pour ce lieu.</div>`}
 }
 
+/* Ciel étoilé : soleil, lune, nuages */
+const RAD=Math.PI/180,OBL=RAD*23.4397;
+const toD=ms=>ms/864e5-0.5+2440588-2451545;
+const raOf=(l,b)=>Math.atan2(Math.sin(l)*Math.cos(OBL)-Math.tan(b)*Math.sin(OBL),Math.cos(l));
+const decOf=(l,b)=>Math.asin(Math.sin(b)*Math.cos(OBL)+Math.cos(b)*Math.sin(OBL)*Math.sin(l));
+function altOf(ra,dec,ms){const d=toD(ms),H=RAD*(280.16+360.9856235*d)+RAD*pos.lon-ra,p=RAD*pos.lat;return Math.asin(Math.sin(p)*Math.sin(dec)+Math.cos(p)*Math.cos(dec)*Math.cos(H))/RAD}
+function sunAlt(ms){const d=toD(ms),M=RAD*(357.5291+0.98560028*d),C=RAD*(1.9148*Math.sin(M)+0.02*Math.sin(2*M)+0.0003*Math.sin(3*M)),L=M+C+RAD*102.9372+Math.PI;return altOf(raOf(L,0),decOf(L,0),ms)}
+function moonAlt(ms){const d=toD(ms),L=RAD*(218.316+13.176396*d),M=RAD*(134.963+13.064993*d),F=RAD*(93.272+13.22935*d),l=L+RAD*6.289*Math.sin(M),b=RAD*5.128*Math.sin(F);return altOf(raOf(l,b),decOf(l,b),ms)}
+function moonTimes(off){
+  const now=Date.now();let up=moonAlt(now)>0,rise=null,set=null;
+  for(let m=10;m<=36*60&&!(rise&&set);m+=10){const t=now+m*6e4,u=moonAlt(t)>0;if(u&&!up&&!rise)rise=t;if(!u&&up&&!set)set=t;up=u}
+  const f=t=>t?new Date(t+off).toISOString().slice(11,16):"—";return{rise:f(rise),set:f(set)};
+}
+function stars(){
+  const el=$("#stars"),h=W.hourly,i0=i0now(),off=(W.utc_offset_seconds||0)*1000,mo=moon(),fr=mo.p/100,N=[];
+  for(let k=0;k<26;k++){
+    const j=i0+k,ms=Date.parse(h.time[j]+"Z")-off,dark=sunAlt(ms)<-12;
+    if(!dark){if(N.length)break;continue}
+    const cl=h.cloud_cover[j]??100,ma=moonAlt(ms),pen=ma>0?fr*Math.min(1,ma/25)*45:0,rain=h.weather_code[j]>=51?.3:1;
+    N.push({t:h.time[j].slice(11,13),s:Math.max(0,Math.min(100,(100-cl-pen)*rain)),up:ma>0});
+  }
+  const mt=moonTimes(off),moonL=`🌙 ${mo.n} · ${mo.p} % éclairée<br>Lever ${mt.rise} · coucher ${mt.set}`;
+  if(!N.length){el.innerHTML=`<b>✨ Ciel étoilé</b><div class="mut" style="margin-top:6px">Pas de nuit assez sombre dans les prochaines 24 h à cette latitude.</div><div class="mut" style="margin-top:8px">${moonL}</div>`;return}
+  const W3=Math.min(3,N.length);let bi=0,bv=-1;
+  for(let a=0;a+W3<=N.length;a++){const v=N.slice(a,a+W3).reduce((x,y)=>x+y.s,0)/W3;if(v>bv){bv=v;bi=a}}
+  const sc=Math.round(bv/10),L=sc>=8?["Excellent","#5be3a8"]:sc>=6?["Bon","#a8e05b"]:sc>=4?["Moyen","#ffd24a"]:["Mauvais","#ff6b7a"];
+  const win=N.slice(bi,bi+W3),a=win[0].t,b=(+win[win.length-1].t+1)%24;
+  const noMoon=win.every(x=>!x.up);
+  const tip=sc<4?"Ciel trop couvert : mieux vaut rester au chaud.":noMoon&&fr<.4?"Lune absente : idéal pour voir la Voie lactée loin des lumières.":!noMoon&&fr>.7?"Lune éclatante : les étoiles faibles s’effacent, bon moment pour observer la Lune.":"Laissez vos yeux s’habituer à l’obscurité 15 minutes.";
+  el.innerHTML=`<div class="row sp"><b>✨ Ciel étoilé</b><b style="color:${L[1]}">${sc}/10 · ${L[0]}</b></div>${bars(N.map(x=>x.s),100)}<div class="row sp mut" style="margin-top:4px"><span>${N[0].t}h</span><span>nuit prochaine</span><span>${(+N[N.length-1].t+1)%24}h</span></div><div style="margin-top:8px">🔭 Meilleur créneau : ${a}h – ${String(b).padStart(2,"0")}h</div><div class="mut" style="margin-top:4px">${tip}</div><div class="mut" style="margin-top:8px">${moonL}</div>`;
+}
+
 /* Webcams proches (Windy) */
-const WINDY_KEY="InQzm9NxdUk1QNVMG8amE0vak0nhy1Lv";
+const WINDY_KEY="";
 async function loadCams(){
   const sec=$("#camsec");
   if(!WINDY_KEY){sec.style.display="none";return}
