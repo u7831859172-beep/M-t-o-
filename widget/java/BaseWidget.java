@@ -70,6 +70,24 @@ public abstract class BaseWidget extends AppWidgetProvider {
     return "Variable";
   }
 
+  static final int[] BG = { R.drawable.widget_bg, R.drawable.widget_bg_autumn, R.drawable.widget_bg_winter, R.drawable.widget_bg_spring };
+  static final int[] PAN = { R.drawable.widget_panel, R.drawable.widget_panel_autumn, R.drawable.widget_panel_winter, R.drawable.widget_panel_spring };
+  static final int[] ACC = { 0xFF9FD0FF, 0xFFFFC58F, 0xFFD4F1FF, 0xFFB6F5D4 };
+  static final int[] SUB = { 0xFFBCD3F5, 0xFFF0CDB3, 0xFFD0E4F5, 0xFFC8EBDA };
+
+  // 0 = \u00E9t\u00E9, 1 = automne, 2 = hiver, 3 = printemps
+  static int season(Context c, double lat) {
+    String pref = c.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE).getString("sea", "auto");
+    if ("summer".equals(pref)) return 0;
+    if ("autumn".equals(pref)) return 1;
+    if ("winter".equals(pref)) return 2;
+    if ("spring".equals(pref)) return 3;
+    int m = java.util.Calendar.getInstance().get(java.util.Calendar.MONTH);
+    int n = (m >= 2 && m <= 4) ? 3 : (m >= 5 && m <= 7) ? 0 : (m >= 8 && m <= 10) ? 1 : 2;
+    if (lat < 0) n = (n + 2) % 4;
+    return n;
+  }
+
   static int vid(Context c, String name) {
     return c.getResources().getIdentifier(name, "id", c.getPackageName());
   }
@@ -93,6 +111,11 @@ public abstract class BaseWidget extends AppWidgetProvider {
       JSONObject h = j.getJSONObject("hourly");
       JSONObject d = j.getJSONObject("daily");
       boolean day = cur.getInt("is_day") == 1;
+      int sx = season(c, p.getDouble("lat"));
+      v.setInt(R.id.root, "setBackgroundResource", BG[sx]);
+      v.setTextColor(R.id.city, ACC[sx]);
+      v.setTextColor(R.id.range, SUB[sx]);
+      if (feels()) v.setTextColor(R.id.feels, SUB[sx]);
       int code = cur.getInt("weather_code");
       String tnow = Math.round(cur.getDouble("temperature_2m")) + "\u00B0";
       v.setTextViewText(R.id.city, p.optString("name", "Ma position"));
@@ -104,6 +127,7 @@ public abstract class BaseWidget extends AppWidgetProvider {
       if (feels()) v.setTextViewText(R.id.feels, "Ressenti : " + Math.round(cur.getDouble("apparent_temperature")) + "\u00B0");
       int n = cols();
       if (n > 0) {
+        v.setInt(R.id.panel, "setBackgroundResource", PAN[sx]);
         JSONArray t = h.getJSONArray("time");
         JSONArray tt = h.getJSONArray("temperature_2m");
         JSONArray wc = h.getJSONArray("weather_code");
@@ -125,6 +149,7 @@ public abstract class BaseWidget extends AppWidgetProvider {
           v.setTextViewText(vid(c, "ct" + k), top);
           v.setImageViewResource(vid(c, "ci" + k), res);
           v.setTextViewText(vid(c, "cl" + k), bottom);
+          v.setTextColor(vid(c, "cl" + k), SUB[sx]);
         }
       }
       return v;
