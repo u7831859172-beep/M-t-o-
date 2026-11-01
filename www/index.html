@@ -97,6 +97,7 @@ html[data-season="spring"]{--bg:#04150f;--card:#0f3a2c;--card2:#17614a;--tx:#eff
 .fp{position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;gap:2px;padding:2px 6px;border-radius:12px;font-size:11px;font-weight:800;line-height:1.25;white-space:nowrap;box-shadow:0 1px 6px rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.35)}
 .fp svg{width:16px;height:16px;flex:none}.lowz .fp svg{display:none}.lz2 .pc{display:none}
 #t-map.fr #map{height:calc(100vh - 410px);min-height:260px}
+.fp.dot{padding:0;width:7px;height:7px;border-radius:50%;box-shadow:none;border:0;opacity:.75}.fp.dot span{display:none}
 </style>
 </head>
 <body>
@@ -111,6 +112,7 @@ html[data-season="spring"]{--bg:#04150f;--card:#0f3a2c;--card2:#17614a;--tx:#eff
   <div class="card hero"><div class="place" id="place">Chargement…</div><div class="ico" id="ico">⏳</div><div class="t" id="temp">--°</div><div class="d" id="desc"></div><div class="mut" id="mm" style="margin-top:6px"></div></div>
   <div class="card" id="nowrain"></div>
   <div class="card" id="stars"></div>
+  <div class="card" id="storm"></div>
   <div class="grid" id="quick"></div>
   <div id="camsec" style="display:none"><h2 style="margin-top:18px">Webcams près de vous</h2><div id="cams"></div><p class="mut" style="font-size:.7rem;text-align:center">Webcams © Windy.com · photos actualisées toutes les 5 à 15 min</p></div>
   <p class="mut" id="upd" style="text-align:center;margin-top:14px"></p>
@@ -127,7 +129,7 @@ html[data-season="spring"]{--bg:#04150f;--card:#0f3a2c;--card2:#17614a;--tx:#eff
   <div class="row sp" style="margin-bottom:10px"><h2 style="margin:0">Cartes</h2><div class="row"><button class="pill" id="bm">🌙 Sombre</button><button class="pill" id="play">⏸</button></div></div>
   <div class="chips" id="mapmode"><button class="chip on" data-m="radar">🌧️ Radar</button><button class="chip" data-m="fr">🇫🇷 France</button></div>
   <div id="frc" style="display:none">
-    <div class="chips" id="fm"><button class="chip on" data-k="t">🌡️ Température</button><button class="chip" data-k="r">🌧️ Pluie</button><button class="chip" data-k="w">💨 Vent</button></div>
+    <div class="chips" id="fm"><button class="chip on" data-k="t">🌡️ Température</button><button class="chip" data-k="r">🌧️ Pluie</button><button class="chip" data-k="w">💨 Vent</button><button class="chip" data-k="o">⚡ Orage</button></div>
     <div class="card" style="padding:12px;margin-bottom:10px"><div class="row sp"><b id="frh">Maintenant</b><span class="mut" id="frd"></span></div><input type="range" id="frs" min="0" max="47" value="0" style="width:100%;margin-top:8px;accent-color:var(--p1)"></div>
   </div>
   <div id="lay" style="display:none;gap:8px;overflow-x:auto;margin-bottom:10px;scrollbar-width:none"></div>
@@ -136,6 +138,7 @@ html[data-season="spring"]{--bg:#04150f;--card:#0f3a2c;--card2:#17614a;--tx:#eff
 </section>
 <section class="tab" id="t-al"><h2>Alertes</h2>
   <div class="card"><b>🔔 Notifications</b><p class="mut" style="margin:6px 0 12px">Recevez une alerte orage, pluie ou neige près de votre position, même quand l’app est fermée.</p><div class="row"><button class="pill" id="nOn">Activer</button><button class="pill" id="nTest">Tester</button></div><p class="mut" id="nstat" style="margin-top:10px"></p></div>
+  <div class="card"><b>⚡ Alerte orage</b><p class="mut" style="margin:6px 0 10px">Prévenir quand un orage est prévu dans un rayon de <b id="sradv">30 km</b> autour de votre position.</p><input type="range" id="srad" min="10" max="100" step="5" value="30" style="width:100%;accent-color:var(--p1)"><div class="row sp mut"><span>10 km</span><span>100 km</span></div></div>
   <div id="alerts"></div></section>
 </main>
 <nav>
@@ -213,7 +216,7 @@ document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
 const CP=(window.Capacitor&&Capacitor.Plugins)||{};
 function savePos(){
   try{if(CP.Preferences&&home)CP.Preferences.set({key:"home",value:JSON.stringify({lat:home.lat,lon:home.lon,name:home.name})})}catch(e){}
-  try{if(CP.BackgroundRunner&&home)CP.BackgroundRunner.dispatchEvent({label:"com.moi.atmoz.check",event:"savePos",details:{lat:home.lat,lon:home.lon,name:home.name}})}catch(e){}
+  try{if(CP.BackgroundRunner&&home)CP.BackgroundRunner.dispatchEvent({label:"com.moi.atmoz.check",event:"savePos",details:{lat:home.lat,lon:home.lon,name:home.name,radius:SRAD}})}catch(e){}
 }
 async function notif(test){
   const LN=CP.LocalNotifications,st=$("#nstat");
@@ -269,7 +272,7 @@ async function load(){
   "&minutely_15=precipitation&forecast_minutely_15=8&timezone=auto&forecast_days=7&wind_speed_unit=kmh";
   try{
     W=await (await fetch(u)).json();
-    render();loadAir();loadCams();
+    render();loadAir();loadCams();loadStorm();
     $("#upd").textContent="Mis à jour à "+new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
   }catch(e){$("#upd").textContent="Hors ligne : impossible d’actualiser."}
 }
@@ -428,7 +431,7 @@ const WS=[[0,[42,75,122]],[10,[58,160,255]],[25,[46,196,182]],[40,[242,208,59]],
 function zc(){const z=map.getZoom(),e=$("#map");e.classList.toggle("lowz",z<6.5);e.classList.toggle("lz2",z<7.5)}
 async function loadFR(){
   if(FR&&Date.now()-FRT<30*6e4)return;
-  const u=`https://api.open-meteo.com/v1/forecast?latitude=${DEP.map(d=>d[2]).join(",")}&longitude=${DEP.map(d=>d[3]).join(",")}&hourly=temperature_2m,weather_code,precipitation,wind_speed_10m,is_day&timezone=Europe%2FParis&forecast_days=3&wind_speed_unit=kmh`;
+  const u=`https://api.open-meteo.com/v1/forecast?latitude=${DEP.map(d=>d[2]).join(",")}&longitude=${DEP.map(d=>d[3]).join(",")}&hourly=temperature_2m,weather_code,precipitation,wind_speed_10m,is_day,cape&timezone=Europe%2FParis&forecast_days=3&wind_speed_unit=kmh`;
   const j=await (await fetch(u)).json();
   if(!Array.isArray(j))throw new Error(j.reason||"réponse invalide");
   FR=j;FRT=Date.now();
@@ -442,15 +445,17 @@ function drawFR(){
   const k=Math.min(frI0+frH,FR[0].hourly.time.length-1),g=L.layerGroup();
   FR.forEach((r,i)=>{
     const h=r.hourly,d=DEP[i],T=h.temperature_2m[k],R=h.precipitation[k],V=h.wind_speed_10m[k],code=h.weather_code[k],day=h.is_day[k];
-    const c=frM==="t"?lerpC(TS,T):frM==="r"?lerpC(RS,R):lerpC(WS,V);
-    const txt=frM==="t"?r0(T)+"°":frM==="r"?(R>=10?r0(R):R.toFixed(1)):r0(V);
+    const CA=h.cape?h.cape[k]||0:0,risk=code>=95?3:CA>=1500?2:CA>=800?1:0;
+    const c=frM==="t"?lerpC(TS,T):frM==="r"?lerpC(RS,R):frM==="w"?lerpC(WS,V):STC[risk];
+    const txt=frM==="t"?r0(T)+"°":frM==="r"?(R>=10?r0(R):R.toFixed(1)):frM==="w"?r0(V):(risk?"⚡":"");
     const fg=(c[0]*299+c[1]*587+c[2]*114)/1000>150?"#0a1226":"#fff",ic=frM==="t"?wi(code,day):"",pc=["92","93","94"].includes(d[0])?" pc":"";
-    g.addLayer(L.marker([+d[2],+d[3]],{icon:L.divIcon({className:"fm"+pc,html:`<div class="fp" style="background:rgb(${c});color:${fg}">${ic}<span>${txt}</span></div>`,iconSize:[0,0]})}).bindPopup(`<b>${d[1].replace(/[<>&]/g,"")} (${d[0]})</b><br>${wc(code,day)[1]}<br>${r0(T)}° · ${R} mm · ${r0(V)} km/h`));
+    g.addLayer(L.marker([+d[2],+d[3]],{icon:L.divIcon({className:"fm"+pc,html:`<div class="fp${frM==="o"&&!risk?" dot":""}" style="background:rgb(${c});color:${fg}">${ic}<span>${txt}</span></div>`,iconSize:[0,0]})}).bindPopup(`<b>${d[1].replace(/[<>&]/g,"")} (${d[0]})</b><br>${wc(code,day)[1]}<br>${r0(T)}° · ${R} mm · ${r0(V)} km/h${h.cape?` · CAPE ${r0(CA)} J/kg`:""}`));
   });
   frLayer=g.addTo(map);
   const t=FR[0].hourly.time[k];
   $("#frh").textContent=frH===0?"Maintenant":new Date(t).toLocaleDateString("fr-FR",{weekday:"short"})+" "+t.slice(11,13)+" h";
   $("#frd").textContent=t.slice(8,10)+"/"+t.slice(5,7);
+  $("#rt").textContent=frM==="o"?"🟡 air instable · 🟠 forte instabilité · 🟣 orage prévu":"Touchez une pastille pour le détail";
 }
 function setMapMode(m){
   frMode=m==="fr";
@@ -472,6 +477,36 @@ function setMapMode(m){
 $("#mapmode").onclick=e=>{const b=e.target.closest(".chip");if(b)setMapMode(b.dataset.m)};
 $("#fm").onclick=e=>{const b=e.target.closest(".chip");if(!b)return;frM=b.dataset.k;document.querySelectorAll("#fm .chip").forEach(x=>x.classList.toggle("on",x===b));drawFR()};
 $("#frs").oninput=e=>{frH=+e.target.value;drawFR()};
+
+/* Orages autour de vous (prévision du modèle) */
+let SRAD=30,STORM=null;try{SRAD=+localStorage.getItem("srad")||30}catch(e){}
+const STC=[[43,74,122],[255,210,74],[255,159,58],[226,61,255]];
+async function loadStorm(){
+  const el=$("#storm");if(!pos)return;
+  try{
+    const R=SRAD,P=[{lat:pos.lat,lon:pos.lon,n:""}];
+    for(let i=0;i<8;i++){const b=i*Math.PI/4;P.push({lat:pos.lat+R/111.2*Math.cos(b),lon:pos.lon+R/(111.2*Math.cos(pos.lat*Math.PI/180))*Math.sin(b),n:dir(i*45)})}
+    const u=`https://api.open-meteo.com/v1/forecast?latitude=${P.map(x=>x.lat.toFixed(3)).join(",")}&longitude=${P.map(x=>x.lon.toFixed(3)).join(",")}&hourly=weather_code,cape&forecast_hours=12&timezone=auto`;
+    const j=await (await fetch(u)).json();if(!Array.isArray(j))throw 0;
+    const T=j[0].hourly.time,H=[];let first=-1,where="";
+    for(let k=0;k<T.length;k++){
+      let m=0,w=-1;
+      j.forEach((r,i)=>{const c=r.hourly.weather_code[k],ca=r.hourly.cape?r.hourly.cape[k]||0:0,v=c>=95?3:ca>=1500?2:ca>=800?1:0;if(v>m){m=v;w=i}});
+      H.push(m);if(m>=2&&first<0){first=k;where=w===0?"sur votre position":`à ~${R} km côté ${P[w].n}`}
+    }
+    const mx=Math.max(...H),lv=first>=0?H[first]:mx,col=["#2b4a7a","#ffd24a","#ff9f3a","#e23dff"];
+    const txt=first>=0?`${lv>=3?"Orage prévu":"Forte instabilité"} vers ${T[first].slice(11,13)}h, ${where}.`:"";
+    STORM={first,lv,txt};
+    const msg=first>=0?`⚡ ${txt}`:mx===1?"🌥️ Air un peu instable, orage peu probable":`✅ Aucun orage prévu dans un rayon de ${R} km`;
+    el.innerHTML=`<div class="row sp"><b>⚡ Orages autour de vous</b><span class="mut">rayon ${R} km</span></div><div style="font-weight:700;margin-top:8px">${msg}</div><div class="bars">${H.map(v=>`<i style="height:${[10,40,70,100][v]}%;background:${col[v]}"></i>`).join("")}</div><div class="row sp mut" style="margin-top:4px"><span>${T[0].slice(11,13)}h</span><span>12 prochaines heures</span><span>${T[T.length-1].slice(11,13)}h</span></div><div class="mut" style="margin-top:8px;font-size:.8rem">Prévision du modèle, pas des éclairs mesurés.</div>`;
+    if(W)alerts();
+  }catch(e){STORM=null;el.innerHTML=`<b>⚡ Orages autour de vous</b><div class="mut" style="margin-top:6px">Indisponible pour le moment.</div>`}
+}
+{
+  const sr=$("#srad");sr.value=SRAD;$("#sradv").textContent=SRAD+" km";
+  sr.oninput=e=>{$("#sradv").textContent=e.target.value+" km"};
+  sr.onchange=e=>{SRAD=+e.target.value;try{localStorage.setItem("srad",SRAD)}catch(x){}loadStorm();savePos()};
+}
 
 /* Webcams proches (Windy) */
 const WINDY_KEY="InQzm9NxdUk1QNVMG8amE0vak0nhy1Lv";
@@ -523,6 +558,7 @@ function alerts(){
   if(tm<=-10)add("r","🥶","Froid intense",`Jusqu’à ${r0(tm)}°.`);else if(tm<=-3)add("w","❄️","Gel",`Minimum ${r0(tm)}°.`);
   if(uv>=8)add("w","🕶️","UV très élevés",`Indice UV ${r0(uv)}.`);
   if(Math.min(...h.visibility.slice(0,n).filter(x=>x!=null))<500)add("w","🌫️","Brouillard dense","Visibilité réduite sous 500 m.");
+  if(STORM&&STORM.first>=0)add(STORM.lv>=3?"r":"w","⚡",STORM.lv>=3?"Orage prévu près de vous":"Forte instabilité",STORM.txt);
   if(AIR&&AIR.aqi>=80)add("w","😷","Qualité de l’air dégradée","Indice "+r0(AIR.aqi)+" : limitez l’effort en extérieur.");
   $("#alerts").innerHTML=A.length?A.map(a=>`<div class="card al ${a.lv}"><div class="e">${a.e}</div><div><b>${a.t}</b><div class="mut">${a.s}</div></div></div>`).join("")
    :`<div class="card al i"><div class="e">✅</div><div><b>Aucune alerte</b><div class="mut">Pas de phénomène marquant prévu dans les 48 h.</div></div></div>`;
