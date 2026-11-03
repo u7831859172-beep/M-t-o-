@@ -121,7 +121,7 @@ public abstract class BaseWidget extends AppWidgetProvider {
       v.setTextViewText(R.id.city, p.optString("name", "Ma position"));
       v.setImageViewResource(R.id.icon, icon(code, day));
       v.setTextViewText(R.id.temp, tnow);
-      v.setTextViewText(R.id.range, Math.round(d.getJSONArray("temperature_2m_max").getDouble(0)) + "\u00B0 \u00B7 "
+      v.setTextViewText(R.id.range, "\u2191" + Math.round(d.getJSONArray("temperature_2m_max").getDouble(0)) + "\u00B0  \u2193"
         + Math.round(d.getJSONArray("temperature_2m_min").getDouble(0)) + "\u00B0");
       if (cond()) v.setTextViewText(R.id.cond, label(code, day));
       if (feels()) v.setTextViewText(R.id.feels, "Ressenti : " + Math.round(cur.getDouble("apparent_temperature")) + "\u00B0");
