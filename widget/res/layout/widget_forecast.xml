@@ -22,7 +22,7 @@
         android:id="@+id/panel" android:orientation="horizontal" android:gravity="center_vertical" android:padding="8dp"
         android:layout_marginTop="8dp" android:background="@drawable/widget_panel">
         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1.7"
-            android:orientation="vertical" android:gravity="center_horizontal">
+            android:orientation="vertical" android:gravity="center_horizontal" android:background="@drawable/widget_now" android:paddingTop="6dp" android:paddingBottom="6dp">
             <TextView android:id="@+id/ct0" android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="" android:textSize="14sp" android:textColor="#FFFFFF"/>
             <ImageView android:id="@+id/ci0" android:layout_width="26dp" android:layout_height="26dp"

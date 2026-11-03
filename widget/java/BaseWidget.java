@@ -46,13 +46,13 @@ public abstract class BaseWidget extends AppWidgetProvider {
   }
 
   static int icon(int c, boolean day) {
-    if (c == 0 || c == 1) return day ? R.drawable.w_sun : R.drawable.w_moon;
-    if (c == 2) return day ? R.drawable.w_partly : R.drawable.w_night_partly;
-    if (c == 45 || c == 48) return R.drawable.w_fog;
-    if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82)) return R.drawable.w_rain;
-    if ((c >= 71 && c <= 77) || c == 85 || c == 86) return R.drawable.w_snow;
-    if (c >= 95) return R.drawable.w_storm;
-    return R.drawable.w_cloud;
+    if (c == 0 || c == 1) return day ? R.drawable.w3_sun : R.drawable.w3_moon;
+    if (c == 2) return day ? R.drawable.w3_partly : R.drawable.w3_night_partly;
+    if (c == 45 || c == 48) return R.drawable.w3_fog;
+    if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82)) return R.drawable.w3_rain;
+    if ((c >= 71 && c <= 77) || c == 85 || c == 86) return R.drawable.w3_snow;
+    if (c >= 95) return R.drawable.w3_storm;
+    return R.drawable.w3_cloud;
   }
 
   static String label(int c, boolean day) {
