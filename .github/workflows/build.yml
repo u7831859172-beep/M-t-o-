@@ -23,7 +23,17 @@ jobs:
       - run: |
           sed -i "/dirs '/ s#'libs'#'libs', '../../node_modules/@capacitor/background-runner/android/src/main/libs'#" android/app/build.gradle
           sed -i 's/minSdkVersion = 22/minSdkVersion = 23/' android/variables.gradle
-      - run: cd android && chmod +x gradlew && ./gradlew assembleDebug --stacktrace
+      - run: |
+          cd android && chmod +x gradlew
+          set -o pipefail
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee ../build.log
+      - if: failure()
+        run: |
+          echo "=============== RESUME DES ERREURS ==============="
+          grep -n -A12 "What went wrong" build.log | head -50 || true
+          echo "--------------- lignes error: ---------------"
+          grep -n "error:" build.log | head -25 || true
+          echo "=============== FIN DU RESUME ==============="
       - uses: actions/upload-artifact@v4
         with:
           name: atmoz-apk
