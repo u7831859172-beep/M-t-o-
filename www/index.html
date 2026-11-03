@@ -125,6 +125,7 @@ nav button.on{background:rgba(255,255,255,.13);color:#fff;box-shadow:none}nav bu
 .cv{width:100%;height:auto;margin-top:6px}.cvl{display:flex;justify-content:space-between;color:var(--mut);font-size:.72rem;text-align:center}
 .plc{display:flex;align-items:center;gap:12px;padding:14px 18px;margin-bottom:12px;border-radius:30px;overflow:hidden}
 .plc .wi{font-size:3.6rem;flex:none}.plc .nm{font-weight:700;font-size:1.1rem}.plc .tt{margin-left:auto;font-size:4.2rem;font-weight:700;color:rgba(255,255,255,.28);letter-spacing:-2px;line-height:1}
+input[type=time]{background:rgba(255,255,255,.08);color:var(--tx);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:8px 10px;font-size:1rem;color-scheme:dark}
 </style>
 </head>
 <body>
@@ -176,6 +177,10 @@ nav button.on{background:rgba(255,255,255,.13);color:#fff;box-shadow:none}nav bu
 <section class="tab" id="t-al"><h2>Alertes</h2>
   <div class="card"><b>🔔 Notifications</b><p class="mut" style="margin:6px 0 12px">Recevez une alerte orage, pluie ou neige près de votre position, même quand l’app est fermée.</p><div class="row"><button class="pill" id="nOn">Activer</button><button class="pill" id="nTest">Tester</button></div><p class="mut" id="nstat" style="margin-top:10px"></p></div>
   <div class="card"><b>⚡ Alerte orage</b><p class="mut" style="margin:6px 0 10px">Prévenir quand un orage est prévu dans un rayon de <b id="sradv">30 km</b> autour de votre position.</p><input type="range" id="srad" min="10" max="100" step="5" value="30" style="width:100%;accent-color:var(--p1)"><div class="row sp mut"><span>10 km</span><span>100 km</span></div></div>
+  <div class="card"><b>🗓️ Météo du jour</b><p class="mut" style="margin:6px 0 10px">Une notification le matin (6h–12h) et une l’après-midi (12h–20h), à l’heure de votre choix.</p>
+    <div class="row sp" style="margin-bottom:8px"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="dmOn" style="accent-color:var(--p1);width:18px;height:18px"> Matin</label><input type="time" id="dmT" value="07:30" min="06:00" max="11:59"></div>
+    <div class="row sp"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="daOn" style="accent-color:var(--p1);width:18px;height:18px"> Après-midi</label><input type="time" id="daT" value="13:00" min="12:00" max="19:59"></div>
+    <button class="pill" id="dTest" style="width:100%;margin-top:12px">Voir un exemple maintenant</button><p class="mut" id="dstat" style="margin-top:8px"></p></div>
   <div id="alerts"></div></section>
 </main>
 <nav>
@@ -280,7 +285,7 @@ document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
 const CP=(window.Capacitor&&Capacitor.Plugins)||{};
 function savePos(){
   try{if(CP.Preferences&&home)CP.Preferences.set({key:"home",value:JSON.stringify({lat:home.lat,lon:home.lon,name:home.name})})}catch(e){}
-  try{if(CP.BackgroundRunner&&home)CP.BackgroundRunner.dispatchEvent({label:"com.moi.atmoz.check",event:"savePos",details:{lat:home.lat,lon:home.lon,name:home.name,radius:SRAD}})}catch(e){}
+  try{if(CP.BackgroundRunner&&home)CP.BackgroundRunner.dispatchEvent({label:"com.moi.atmoz.check",event:"savePos",details:{lat:home.lat,lon:home.lon,name:home.name,radius:SRAD,morning:DLY.m.on?DLY.m.t:"",afternoon:DLY.a.on?DLY.a.t:""}})}catch(e){}
 }
 async function notif(test){
   const LN=CP.LocalNotifications,st=$("#nstat");
@@ -576,6 +581,42 @@ function setMapMode(m){
 $("#mapmode").onclick=e=>{const b=e.target.closest(".chip");if(b)setMapMode(b.dataset.m)};
 $("#fm").onclick=e=>{const b=e.target.closest(".chip");if(!b)return;frM=b.dataset.k;document.querySelectorAll("#fm .chip").forEach(x=>x.classList.toggle("on",x===b));drawFR()};
 $("#frs").oninput=e=>{frH=+e.target.value;drawFR()};
+
+/* Météo du jour : réglages et exemple */
+let DLY={m:{on:true,t:"07:30"},a:{on:true,t:"13:00"}};
+try{const x=JSON.parse(localStorage.getItem("dly"));if(x&&x.m&&x.a)DLY=x}catch(e){}
+function dailyText(kind){
+  const c=W.current,d=W.daily,h=W.hourly,i0=i0now(),T=r0(c.temperature_2m);
+  let rain=null,snow=null,storm=null;
+  for(let k=0;k<12&&i0+k<h.time.length;k++){const j=i0+k,x=h.weather_code[j],hh=h.time[j].slice(11,13)+"h";
+    if(storm===null&&x>=95)storm=hh;if(snow===null&&((x>=71&&x<=77)||x===85||x===86))snow=hh;
+    if(rain===null&&((x>=51&&x<=67)||(x>=80&&x<=82))&&((h.precipitation_probability[j]||0)>=50))rain=hh}
+  const rt=storm?"⚡ Orage possible vers "+storm:snow?"❄️ Neige vers "+snow:rain?"☔ Pluie vers "+rain:"Pas de pluie prévue",w=wc(c.weather_code,c.is_day);
+  if(kind==="m")return["Météo du matin · "+pos.name,`${w[0]} ${w[1]}, ${T}° (ressenti ${r0(c.apparent_temperature)}°). Max ${r0(d.temperature_2m_max[0])}° · min ${r0(d.temperature_2m_min[0])}°. ${rt}. Vent ${r0(c.wind_speed_10m)} km/h.`];
+  let ev=null;for(let k=0;k<h.time.length&&k<i0+12;k++){if(k>=i0&&h.time[k].slice(11,13)==="20")ev=r0(h.temperature_2m[k])}
+  return["Météo de l’après-midi · "+pos.name,`${w[0]} ${w[1]}, ${T}°. ${ev!==null?"Ce soir "+ev+"° · ":""}${rt}. Demain : ${r0(d.temperature_2m_min[1])}° à ${r0(d.temperature_2m_max[1])}°.`];
+}
+async function dailyTest(){
+  const st=$("#dstat"),LN=CP.LocalNotifications;
+  if(!W||!pos){st.textContent="Attendez le chargement de la météo.";return}
+  if(!LN){st.textContent="Disponible uniquement dans l’application Android installée.";return}
+  try{
+    const p=await LN.requestPermissions();
+    if(p.display!=="granted"){st.textContent="Notifications refusées dans les réglages Android.";return}
+    const [t,b]=dailyText(new Date().getHours()<12?"m":"a");
+    await LN.schedule({notifications:[{id:2999,title:t,body:b,schedule:{at:new Date(Date.now()+1500)}}]});
+    st.textContent="Exemple envoyé : regardez vos notifications.";
+  }catch(e){st.textContent="Erreur : "+(e.message||e)}
+}
+{
+  const g=id=>$("#"+id),sv=()=>{try{localStorage.setItem("dly",JSON.stringify(DLY))}catch(e){}savePos()};
+  g("dmOn").checked=DLY.m.on;g("dmT").value=DLY.m.t;g("daOn").checked=DLY.a.on;g("daT").value=DLY.a.t;
+  g("dmOn").onchange=e=>{DLY.m.on=e.target.checked;sv()};
+  g("daOn").onchange=e=>{DLY.a.on=e.target.checked;sv()};
+  g("dmT").onchange=e=>{let v=e.target.value||"07:30";if(v<"06:00")v="06:00";if(v>"11:59")v="11:59";e.target.value=v;DLY.m.t=v;sv()};
+  g("daT").onchange=e=>{let v=e.target.value||"13:00";if(v<"12:00")v="12:00";if(v>"19:59")v="19:59";e.target.value=v;DLY.a.t=v;sv()};
+  g("dTest").onclick=dailyTest;
+}
 
 /* Orages autour de vous (prévision du modèle) */
 let SRAD=30,STORM=null;try{SRAD=+localStorage.getItem("srad")||30}catch(e){}
